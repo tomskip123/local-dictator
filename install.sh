@@ -23,10 +23,9 @@ fi
 echo "Installing Python package..."
 pipx install -e "$SCRIPT_DIR" --force
 
-# Install desktop entries
-echo "Installing desktop entries..."
+# Install desktop entry for settings
+echo "Installing desktop entry..."
 mkdir -p ~/.local/share/applications
-cp "$RESOURCES/dictation.desktop" ~/.local/share/applications/
 cp "$RESOURCES/dictation-settings.desktop" ~/.local/share/applications/
 
 # Install systemd services
