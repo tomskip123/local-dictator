@@ -74,10 +74,13 @@ Or reboot and they'll start automatically.
 |---------|-------------|
 | `dictation` | Run the dictation service (usually via systemd) |
 | `dictation-settings` | Open the settings GUI |
+| `dictation-doctor status` | Check service status |
+| `dictation-doctor restart` | Restart services |
+| `dictation-doctor start` | Start services |
+| `dictation-doctor stop` | Stop services |
+| `dictation-doctor logs` | View recent logs |
 | `dictation-doctor cache` | Show cached model sizes |
 | `dictation-doctor clean` | Delete cached models to free space |
-| `dictation-doctor status` | Check service status |
-| `dictation-doctor logs` | View recent logs |
 
 ### Shell script helpers
 
@@ -95,7 +98,7 @@ Configuration is stored in `~/.config/dictation/config.json`:
 ```json
 {
   "device": "cpu",
-  "model": "small",
+  "model": "tiny",
   "language": "auto",
   "hotkey": ["F10"],
   "mode": "toggle",

@@ -49,13 +49,12 @@ case "$1" in
         cat > "$CONFIG_FILE" << 'EOF'
 {
   "device": "cpu",
-  "model": "small",
+  "model": "tiny",
   "language": "auto",
   "hotkey": ["F10"],
   "mode": "toggle",
   "streaming": true,
-  "streaming_interval": 3.0,
-  "auto_punctuation": true
+  "streaming_interval": 3.0
 }
 EOF
         echo "Config generated at: $CONFIG_FILE"
