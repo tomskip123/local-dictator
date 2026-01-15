@@ -3,6 +3,7 @@
 import signal
 import sys
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 from .config import get_config
@@ -22,6 +23,7 @@ class DictationController:
         self._last_text = ""
         self._streaming_active = False
         self._transcribe_lock = threading.Lock()
+        self._executor = ThreadPoolExecutor(max_workers=2)
 
         config = get_config()
         self.listener = HotkeyListener(
@@ -57,13 +59,12 @@ class DictationController:
             try:
                 if self._streaming_active:
                     text = transcribe(audio)
-                    if self._streaming_active:
+                    if self._streaming_active and text:
                         self._update_streaming_text(text)
             finally:
                 self._transcribe_lock.release()
 
-        thread = threading.Thread(target=do_chunk_transcribe, daemon=True)
-        thread.start()
+        self._executor.submit(do_chunk_transcribe)
 
     def _update_streaming_text(self, new_text: str) -> None:
         if not new_text:
@@ -136,8 +137,7 @@ class DictationController:
         def do_transcribe():
             self._inject_result(transcribe(audio))
 
-        thread = threading.Thread(target=do_transcribe, daemon=True)
-        thread.start()
+        self._executor.submit(do_transcribe)
 
     def _inject_result(self, text: str) -> None:
         if text:
@@ -166,6 +166,7 @@ class DictationController:
             print("\nShutting down...")
             self._running = False
             self.listener.stop()
+            self._executor.shutdown(wait=False)
             sys.exit(0)
 
         signal.signal(signal.SIGINT, handle_signal)

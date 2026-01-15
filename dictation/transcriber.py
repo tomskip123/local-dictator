@@ -1,11 +1,18 @@
-"""Speech-to-text transcription using OpenAI Whisper."""
+"""Speech-to-text transcription using Whisper."""
 
 import numpy as np
-import whisper
 from .config import get_config, DeviceType, ModelSize
 from .audio import process_audio
 
-_model: whisper.Whisper | None = None
+# Try faster-whisper first, fall back to openai-whisper
+try:
+    from faster_whisper import WhisperModel
+    FASTER_WHISPER = True
+except ImportError:
+    import whisper
+    FASTER_WHISPER = False
+
+_model = None
 _current_device: DeviceType | None = None
 _current_model_size: ModelSize | None = None
 
@@ -18,7 +25,7 @@ def cuda_available() -> bool:
         return False
 
 
-def get_model() -> whisper.Whisper:
+def get_model():
     global _model, _current_device, _current_model_size
 
     config = get_config()
@@ -29,7 +36,11 @@ def get_model() -> whisper.Whisper:
         device = "cpu"
 
     if _model is None or _current_device != device or _current_model_size != model_size:
-        _model = whisper.load_model(model_size, device=device)
+        if FASTER_WHISPER:
+            compute_type = "float16" if device == "cuda" else "int8"
+            _model = WhisperModel(model_size, device=device, compute_type=compute_type)
+        else:
+            _model = whisper.load_model(model_size, device=device)
         _current_device = device
         _current_model_size = model_size
 
@@ -89,13 +100,17 @@ def transcribe(audio: np.ndarray) -> str:
     model = get_model()
     language = None if config.language == "auto" else config.language
 
-    result = model.transcribe(
-        audio,
-        language=language,
-        fp16=config.device == "cuda",
-    )
+    if FASTER_WHISPER:
+        segments, _ = model.transcribe(audio, language=language, beam_size=1, vad_filter=True)
+        text = " ".join(seg.text for seg in segments).strip()
+    else:
+        result = model.transcribe(
+            audio,
+            language=language,
+            fp16=config.device == "cuda",
+        )
+        text = result["text"].strip()
 
-    text = result["text"].strip()
     if is_hallucination(text):
         return ""
     return text

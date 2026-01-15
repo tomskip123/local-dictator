@@ -16,7 +16,7 @@ HotkeyMode = Literal["hold", "toggle"]
 @dataclass
 class Config:
     device: DeviceType = "cpu"
-    model: ModelSize = "small"
+    model: ModelSize = "tiny"
     language: str = "auto"
     hotkey: list[str] = field(default_factory=lambda: ["F10"])
     mode: HotkeyMode = "toggle"

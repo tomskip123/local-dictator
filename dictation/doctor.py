@@ -82,6 +82,36 @@ def cmd_logs():
         print()
 
 
+def cmd_restart():
+    """Restart services."""
+    import time
+    print("Restarting services...")
+    subprocess.run(["systemctl", "--user", "restart", "ydotoold"])
+    time.sleep(1)
+    subprocess.run(["systemctl", "--user", "restart", "dictation"])
+    print("Done.")
+    cmd_status()
+
+
+def cmd_stop():
+    """Stop services."""
+    print("Stopping services...")
+    subprocess.run(["systemctl", "--user", "stop", "dictation"])
+    subprocess.run(["systemctl", "--user", "stop", "ydotoold"])
+    print("Done.")
+
+
+def cmd_start():
+    """Start services."""
+    import time
+    print("Starting services...")
+    subprocess.run(["systemctl", "--user", "start", "ydotoold"])
+    time.sleep(1)
+    subprocess.run(["systemctl", "--user", "start", "dictation"])
+    print("Done.")
+    cmd_status()
+
+
 def main():
     """Main entry point."""
     args = sys.argv[1:]
@@ -91,21 +121,27 @@ def main():
         print()
         print("Commands:")
         print("  status    Show service status")
+        print("  restart   Restart services")
+        print("  start     Start services")
+        print("  stop      Stop services")
         print("  logs      Show recent logs")
         print("  cache     Show cache size")
         print("  clean     Delete cached models")
         return 0
 
     cmd = args[0]
+    commands = {
+        "cache": cmd_cache,
+        "clean": cmd_clean,
+        "status": cmd_status,
+        "logs": cmd_logs,
+        "restart": cmd_restart,
+        "start": cmd_start,
+        "stop": cmd_stop,
+    }
 
-    if cmd == "cache":
-        cmd_cache()
-    elif cmd == "clean":
-        cmd_clean()
-    elif cmd == "status":
-        cmd_status()
-    elif cmd == "logs":
-        cmd_logs()
+    if cmd in commands:
+        commands[cmd]()
     else:
         print(f"Unknown command: {cmd}")
         return 1

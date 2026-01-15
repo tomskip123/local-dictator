@@ -2,6 +2,7 @@
 
 import numpy as np
 import sounddevice as sd
+from scipy import signal
 from threading import Lock
 from typing import Callable
 
@@ -16,7 +17,7 @@ def normalize_audio(audio: np.ndarray, target_level: float = 0.9) -> np.ndarray:
         return audio
     peak = np.max(np.abs(audio))
     if peak > 0:
-        return audio * (target_level / peak)
+        return (audio * (target_level / peak)).astype(DTYPE)
     return audio
 
 
@@ -27,40 +28,33 @@ def compress_audio(
     attack_ms: float = 5.0,
     release_ms: float = 50.0,
 ) -> np.ndarray:
-    """Apply dynamic range compression to audio."""
+    """Apply dynamic range compression to audio (vectorized)."""
     if len(audio) == 0:
         return audio
 
-    attack_samples = int(SAMPLE_RATE * attack_ms / 1000)
-    release_samples = int(SAMPLE_RATE * release_ms / 1000)
+    attack_coef = 1.0 - np.exp(-1000.0 / (SAMPLE_RATE * attack_ms)) if attack_ms > 0 else 1.0
+    release_coef = 1.0 - np.exp(-1000.0 / (SAMPLE_RATE * release_ms)) if release_ms > 0 else 1.0
 
-    output = np.zeros_like(audio)
-    envelope = 0.0
+    # Envelope follower using leaky integrator (approximate attack/release)
+    abs_audio = np.abs(audio)
+    avg_coef = (attack_coef + release_coef) / 2
+    b = [avg_coef]
+    a = [1.0, -(1.0 - avg_coef)]
+    envelope = signal.lfilter(b, a, abs_audio)
+    envelope = np.maximum(envelope, 1e-10)
 
-    for i, sample in enumerate(audio):
-        abs_sample = abs(sample)
+    # Vectorized gain calculation
+    gain = np.where(
+        envelope > threshold,
+        (threshold + (envelope - threshold) / ratio) / envelope,
+        1.0
+    )
 
-        # Envelope follower
-        if abs_sample > envelope:
-            coef = 1.0 - np.exp(-1.0 / attack_samples) if attack_samples > 0 else 1.0
-        else:
-            coef = 1.0 - np.exp(-1.0 / release_samples) if release_samples > 0 else 1.0
-        envelope = envelope + coef * (abs_sample - envelope)
-
-        # Apply compression
-        if envelope > threshold:
-            gain = threshold + (envelope - threshold) / ratio
-            gain = gain / envelope if envelope > 0 else 1.0
-        else:
-            gain = 1.0
-
-        output[i] = sample * gain
-
-    return output
+    return (audio * gain).astype(DTYPE)
 
 
 def apply_highpass(audio: np.ndarray, cutoff_hz: float = 80.0) -> np.ndarray:
-    """Simple single-pole highpass filter to remove low rumble."""
+    """Single-pole highpass filter to remove low rumble (vectorized)."""
     if len(audio) == 0:
         return audio
 
@@ -68,16 +62,10 @@ def apply_highpass(audio: np.ndarray, cutoff_hz: float = 80.0) -> np.ndarray:
     dt = 1.0 / SAMPLE_RATE
     alpha = rc / (rc + dt)
 
-    output = np.zeros_like(audio)
-    prev_input = 0.0
-    prev_output = 0.0
-
-    for i, sample in enumerate(audio):
-        output[i] = alpha * (prev_output + sample - prev_input)
-        prev_input = sample
-        prev_output = output[i]
-
-    return output
+    # IIR filter: y[n] = alpha * (y[n-1] + x[n] - x[n-1])
+    b = [alpha, -alpha]
+    a = [1.0, -alpha]
+    return signal.lfilter(b, a, audio).astype(DTYPE)
 
 
 def process_audio(audio: np.ndarray, normalize: bool = True, compress: bool = True, highpass: bool = True) -> np.ndarray:
@@ -96,8 +84,13 @@ def process_audio(audio: np.ndarray, normalize: bool = True, compress: bool = Tr
 
 
 class AudioRecorder:
+    # Pre-allocate buffer for up to 5 minutes of audio
+    MAX_DURATION = 300
+    BUFFER_SIZE = SAMPLE_RATE * MAX_DURATION
+
     def __init__(self):
-        self._buffer: list[np.ndarray] = []
+        self._buffer = np.zeros(self.BUFFER_SIZE, dtype=DTYPE)
+        self._write_pos = 0
         self._lock = Lock()
         self._stream: sd.InputStream | None = None
         self._recording = False
@@ -110,18 +103,22 @@ class AudioRecorder:
             print(f"Audio status: {status}")
         with self._lock:
             if self._recording:
-                self._buffer.append(indata.copy())
+                data = indata.flatten()
+                end_pos = min(self._write_pos + len(data), self.BUFFER_SIZE)
+                copy_len = end_pos - self._write_pos
+                self._buffer[self._write_pos:end_pos] = data[:copy_len]
+                self._write_pos = end_pos
 
                 if self._chunk_callback and self._chunk_samples > 0:
                     self._samples_since_chunk += frames
                     if self._samples_since_chunk >= self._chunk_samples:
-                        audio = np.concatenate(self._buffer, axis=0).flatten()
+                        audio = self._buffer[:self._write_pos].copy()
                         self._samples_since_chunk = 0
                         self._chunk_callback(audio)
 
     def start(self, chunk_callback: Callable[[np.ndarray], None] | None = None, chunk_seconds: float = 0) -> None:
         with self._lock:
-            self._buffer.clear()
+            self._write_pos = 0
             self._recording = True
             self._chunk_callback = chunk_callback
             self._chunk_samples = int(chunk_seconds * SAMPLE_RATE) if chunk_seconds > 0 else 0
@@ -146,17 +143,17 @@ class AudioRecorder:
             self._stream = None
 
         with self._lock:
-            if not self._buffer:
+            if self._write_pos == 0:
                 return np.array([], dtype=DTYPE)
-            audio = np.concatenate(self._buffer, axis=0).flatten()
-            self._buffer.clear()
+            audio = self._buffer[:self._write_pos].copy()
+            self._write_pos = 0
             return audio
 
     def get_audio_so_far(self) -> np.ndarray:
         with self._lock:
-            if not self._buffer:
+            if self._write_pos == 0:
                 return np.array([], dtype=DTYPE)
-            return np.concatenate(self._buffer, axis=0).flatten()
+            return self._buffer[:self._write_pos].copy()
 
     @property
     def is_recording(self) -> bool:
