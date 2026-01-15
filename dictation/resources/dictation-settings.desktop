@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Dictation Settings
 Comment=Configure dictation speech-to-text
-Exec=dictation-settings
+Exec=bash -lc dictation-settings
 Icon=preferences-desktop
 Terminal=false
 Type=Application
