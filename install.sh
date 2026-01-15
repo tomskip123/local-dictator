@@ -23,10 +23,11 @@ fi
 echo "Installing Python package..."
 pipx install -e "$SCRIPT_DIR" --force
 
-# Install desktop entry
-echo "Installing desktop entry..."
+# Install desktop entries
+echo "Installing desktop entries..."
 mkdir -p ~/.local/share/applications
 cp "$RESOURCES/dictation.desktop" ~/.local/share/applications/
+cp "$RESOURCES/dictation-settings.desktop" ~/.local/share/applications/
 
 # Install systemd services
 echo "Installing systemd services..."
@@ -49,5 +50,6 @@ echo "  systemctl --user start dictation"
 echo
 echo "Or reboot and it will start automatically."
 echo
-echo "Hotkey: Super + Alt + D (toggle recording)"
+echo "Hotkey: F10 (toggle recording)"
+echo "Settings: dictation-settings"
 echo "Config: ~/.config/dictation/config.json"

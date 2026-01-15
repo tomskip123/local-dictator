@@ -14,9 +14,10 @@ echo "Removing systemd services..."
 rm -f ~/.config/systemd/user/dictation.service
 systemctl --user daemon-reload
 
-# Remove desktop entry
-echo "Removing desktop entry..."
+# Remove desktop entries
+echo "Removing desktop entries..."
 rm -f ~/.local/share/applications/dictation.desktop
+rm -f ~/.local/share/applications/dictation-settings.desktop
 
 # Uninstall Python package
 echo "Uninstalling Python package..."

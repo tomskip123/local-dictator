@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Dictation Settings
+Comment=Configure dictation speech-to-text
+Exec=dictation-settings
+Icon=preferences-desktop
+Terminal=false
+Type=Application
+Categories=Settings;Utility;Audio;
+Keywords=speech;voice;dictation;settings;preferences;whisper;
+StartupNotify=true
