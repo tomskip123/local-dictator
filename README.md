@@ -1,6 +1,6 @@
 # Dictation
 
-Local speech-to-text dictation for Linux using OpenAI Whisper. Press a hotkey, speak, and your words appear as text in any application.
+Dictation for Linux that respects your privacy. Uses OpenAI Whisper to transcribe speech locally on your machine - nothing is sent to the cloud. Just press F10, speak, and watch your words appear in any application. Designed for Wayland with streaming transcription support, so you see words as you speak them. Works with CPU or GPU (CUDA) acceleration.
 
 ## Features
 
