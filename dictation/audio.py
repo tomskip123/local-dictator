@@ -10,6 +10,91 @@ CHANNELS = 1
 DTYPE = np.float32
 
 
+def normalize_audio(audio: np.ndarray, target_level: float = 0.9) -> np.ndarray:
+    """Normalize audio to target peak level."""
+    if len(audio) == 0:
+        return audio
+    peak = np.max(np.abs(audio))
+    if peak > 0:
+        return audio * (target_level / peak)
+    return audio
+
+
+def compress_audio(
+    audio: np.ndarray,
+    threshold: float = 0.3,
+    ratio: float = 4.0,
+    attack_ms: float = 5.0,
+    release_ms: float = 50.0,
+) -> np.ndarray:
+    """Apply dynamic range compression to audio."""
+    if len(audio) == 0:
+        return audio
+
+    attack_samples = int(SAMPLE_RATE * attack_ms / 1000)
+    release_samples = int(SAMPLE_RATE * release_ms / 1000)
+
+    output = np.zeros_like(audio)
+    envelope = 0.0
+
+    for i, sample in enumerate(audio):
+        abs_sample = abs(sample)
+
+        # Envelope follower
+        if abs_sample > envelope:
+            coef = 1.0 - np.exp(-1.0 / attack_samples) if attack_samples > 0 else 1.0
+        else:
+            coef = 1.0 - np.exp(-1.0 / release_samples) if release_samples > 0 else 1.0
+        envelope = envelope + coef * (abs_sample - envelope)
+
+        # Apply compression
+        if envelope > threshold:
+            gain = threshold + (envelope - threshold) / ratio
+            gain = gain / envelope if envelope > 0 else 1.0
+        else:
+            gain = 1.0
+
+        output[i] = sample * gain
+
+    return output
+
+
+def apply_highpass(audio: np.ndarray, cutoff_hz: float = 80.0) -> np.ndarray:
+    """Simple single-pole highpass filter to remove low rumble."""
+    if len(audio) == 0:
+        return audio
+
+    rc = 1.0 / (2.0 * np.pi * cutoff_hz)
+    dt = 1.0 / SAMPLE_RATE
+    alpha = rc / (rc + dt)
+
+    output = np.zeros_like(audio)
+    prev_input = 0.0
+    prev_output = 0.0
+
+    for i, sample in enumerate(audio):
+        output[i] = alpha * (prev_output + sample - prev_input)
+        prev_input = sample
+        prev_output = output[i]
+
+    return output
+
+
+def process_audio(audio: np.ndarray, normalize: bool = True, compress: bool = True, highpass: bool = True) -> np.ndarray:
+    """Apply audio processing chain."""
+    if len(audio) == 0:
+        return audio
+
+    if highpass:
+        audio = apply_highpass(audio)
+    if compress:
+        audio = compress_audio(audio)
+    if normalize:
+        audio = normalize_audio(audio)
+
+    return audio
+
+
 class AudioRecorder:
     def __init__(self):
         self._buffer: list[np.ndarray] = []

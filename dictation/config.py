@@ -23,6 +23,9 @@ class Config:
     streaming: bool = True
     streaming_interval: float = 3.0
     silence_threshold: float = 0.005
+    audio_normalize: bool = True
+    audio_compress: bool = True
+    audio_highpass: bool = True
     auto_punctuation: bool = True
 
     @classmethod

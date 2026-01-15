@@ -34,6 +34,8 @@ fast = ["faster-whisper>=1.0.0"]
 
 [project.scripts]
 dictation = "dictation.main:main"
+dictation-settings = "dictation.ui.app:main"
+dictation-doctor = "dictation.doctor:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

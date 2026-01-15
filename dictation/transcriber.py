@@ -3,6 +3,7 @@
 import numpy as np
 import whisper
 from .config import get_config, DeviceType, ModelSize
+from .audio import process_audio
 
 _model: whisper.Whisper | None = None
 _current_device: DeviceType | None = None
@@ -41,7 +42,7 @@ def reload_model() -> None:
     get_model()
 
 
-def is_silence(audio: np.ndarray, threshold: float = 0.005) -> bool:
+def is_silence(audio: np.ndarray, threshold: float) -> bool:
     """Check if audio is mostly silence based on RMS energy."""
     if len(audio) == 0:
         return True
@@ -49,13 +50,43 @@ def is_silence(audio: np.ndarray, threshold: float = 0.005) -> bool:
     return rms < threshold
 
 
+# Common Whisper hallucinations on silence/noise
+HALLUCINATIONS = {
+    "thank you",
+    "thanks for watching",
+    "thanks for listening",
+    "subscribe",
+    "like and subscribe",
+    "see you next time",
+    "bye",
+    "goodbye",
+    "you",
+    "the end",
+    "...",
+    ".",
+}
+
+
+def is_hallucination(text: str) -> bool:
+    """Check if text is a common Whisper hallucination."""
+    cleaned = text.lower().strip().rstrip(".!?,")
+    return cleaned in HALLUCINATIONS or len(cleaned) < 2
+
+
 def transcribe(audio: np.ndarray) -> str:
-    if len(audio) == 0 or is_silence(audio):
+    config = get_config()
+    if len(audio) == 0 or is_silence(audio, config.silence_threshold):
         return ""
 
-    config = get_config()
-    model = get_model()
+    # Apply audio processing
+    audio = process_audio(
+        audio,
+        normalize=config.audio_normalize,
+        compress=config.audio_compress,
+        highpass=config.audio_highpass,
+    )
 
+    model = get_model()
     language = None if config.language == "auto" else config.language
 
     result = model.transcribe(
@@ -64,4 +95,7 @@ def transcribe(audio: np.ndarray) -> str:
         fp16=config.device == "cuda",
     )
 
-    return result["text"].strip()
+    text = result["text"].strip()
+    if is_hallucination(text):
+        return ""
+    return text

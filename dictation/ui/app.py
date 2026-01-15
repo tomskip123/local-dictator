@@ -16,7 +16,7 @@ class DictationApp(Adw.Application):
         self.settings_window: SettingsWindow | None = None
 
     def do_activate(self) -> None:
-        pass
+        self.show_settings()
 
     def show_settings(self) -> None:
         if self.settings_window is None or not self.settings_window.get_visible():
@@ -25,3 +25,8 @@ class DictationApp(Adw.Application):
 
     def quit_app(self) -> None:
         self.quit()
+
+
+def main() -> int:
+    app = DictationApp()
+    return app.run()

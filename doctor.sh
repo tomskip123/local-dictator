@@ -62,6 +62,40 @@ EOF
         cat "$CONFIG_FILE"
         exit 0
         ;;
+    clean)
+        CACHE_DIR="$HOME/.cache/whisper"
+        if [ -d "$CACHE_DIR" ]; then
+            SIZE=$(du -sh "$CACHE_DIR" 2>/dev/null | cut -f1)
+            echo "Whisper model cache: $SIZE"
+            echo "Location: $CACHE_DIR"
+            echo
+            ls -lh "$CACHE_DIR" 2>/dev/null
+            echo
+            read -p "Delete all cached models? [y/N] " confirm
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                rm -rf "$CACHE_DIR"
+                echo "Cache cleared."
+            else
+                echo "Cancelled."
+            fi
+        else
+            echo "No cache found at $CACHE_DIR"
+        fi
+        exit 0
+        ;;
+    cache)
+        CACHE_DIR="$HOME/.cache/whisper"
+        if [ -d "$CACHE_DIR" ]; then
+            SIZE=$(du -sh "$CACHE_DIR" 2>/dev/null | cut -f1)
+            echo "Whisper model cache: $SIZE"
+            echo "Location: $CACHE_DIR"
+            echo
+            ls -lh "$CACHE_DIR" 2>/dev/null
+        else
+            echo "No cache found at $CACHE_DIR"
+        fi
+        exit 0
+        ;;
     help|--help|-h)
         echo "Usage: ./doctor.sh [command]"
         echo
@@ -72,6 +106,8 @@ EOF
         echo "  stop      Stop all services"
         echo "  logs      Show recent logs"
         echo "  config    Generate default config file"
+        echo "  cache     Show cache size and contents"
+        echo "  clean     Delete all cached models"
         exit 0
         ;;
 esac
@@ -137,7 +173,19 @@ if command -v python3 >/dev/null; then
 fi
 
 echo
-echo "Logs (last 10 lines):"
+echo "Cache:"
+CACHE_DIR="$HOME/.cache/whisper"
+if [ -d "$CACHE_DIR" ]; then
+    SIZE=$(du -sh "$CACHE_DIR" 2>/dev/null | cut -f1)
+    COUNT=$(ls "$CACHE_DIR" 2>/dev/null | wc -l)
+    echo "    $SIZE in $COUNT model(s) at $CACHE_DIR"
+    echo "    Run './doctor.sh clean' to clear cache"
+else
+    echo "    No cache found"
+fi
+
+echo
+echo "Logs (last 5 lines):"
 echo "--- ydotoold ---"
 journalctl --user -u ydotoold -n 5 --no-pager 2>/dev/null || echo "No logs"
 echo "--- dictation ---"
