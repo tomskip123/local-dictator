@@ -22,6 +22,7 @@ fi
 # Install Python package with pipx
 echo "Installing Python package..."
 pipx install -e "$SCRIPT_DIR" --force
+pipx inject dictation PyGObject
 
 # Install desktop entry for settings
 echo "Installing desktop entry..."
